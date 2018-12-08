@@ -1,9 +1,10 @@
-from . import datelock, feed, get, output, verbose, storage
+import sys
 from asyncio import get_event_loop, TimeoutError
 from datetime import timedelta, datetime
-from .storage import db
-import sys
 
+from . import datelock, feed, get, output, verbose, storage
+from .storage import db
+from .customErrors import TimeExceeded
 #import logging
 
 class Twint:
@@ -96,25 +97,25 @@ class Twint:
         await self.Feed()
         self.count += await get.Multi(self.feed, self.config, self.conn)
 
-    async def profile(self):
+    async def profileOrTweets(self):
         #logging.info("[<] " + str(datetime.now()) + ':: run+Twint+profile')
         await self.Feed()
-        if self.config.Profile_full:
+        if self.config.Profile_full or self.config.Location:
             self.count += await get.Multi(self.feed, self.config, self.conn)
         else:
             for tweet in self.feed:
+                if self.Limit(self.config.Limit, self.count):
+                    break
                 self.count += 1
-                await output.Tweets(tweet, "", self.config, self.conn)
+                try:
+                    await output.Tweets(tweet, "", self.config, self.conn)
+                except TimeExceeded:
+                    break
 
-    async def tweets(self):
-        #logging.info("[<] " + str(datetime.now()) + ':: run+Twint+tweets')
-        await self.Feed()
-        if self.config.Location:
-            self.count += await get.Multi(self.feed, self.config, self.conn)
-        else:
-            for tweet in self.feed:
-                self.count += 1
-                await output.Tweets(tweet, "", self.config, self.conn)
+    def Limit(self, Limit, count):
+        #loggin.info("[<] " + str(datetime.now()) + ':: get+Limit')
+        if Limit is not None and count >= int(Limit):
+            return True
 
     async def main(self):
         self.user_agent = await get.RandomUserAgent()
@@ -132,13 +133,13 @@ class Twint:
                 self.config.Since = str(self.d._until - _days)
                 self.config.Until = str(self.d._until)
                 if len(self.feed) > 0:
-                    await self.tweets()
+                    await self.profileOrTweets()
                 else:
                     self.d._until = self.d._until - _days
                     self.feed = [-1]
 
                 #logging.info("[<] " + str(datetime.now()) + ':: run+Twint+main+CallingGetLimit1')
-                if get.Limit(self.config.Limit, self.count):
+                if self.Limit(self.config.Limit, self.count):
                     self.d._until = self.d._until - _days
                     self.feed = [-1]
         else:
@@ -148,15 +149,13 @@ class Twint:
                         await self.follow()
                     elif self.config.Favorites:
                         await self.favorite()
-                    elif self.config.Profile:
-                        await self.profile()
-                    elif self.config.TwitterSearch:
-                        await self.tweets()
+                    elif self.config.Profile or self.config.TwitterSearch:
+                        await self.profileOrTweets()
                 else:
                     break
 
                 #logging.info("[<] " + str(datetime.now()) + ':: run+Twint+main+CallingGetLimit2')
-                if get.Limit(self.config.Limit, self.count):
+                if self.Limit(self.config.Limit, self.count):
                     break
 
         if self.config.Count:

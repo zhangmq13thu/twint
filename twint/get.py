@@ -150,11 +150,6 @@ async def User(url, config, conn, user_id = False):
     except Exception as e:
         print(str(e) + " [x] get.User")
 
-def Limit(Limit, count):
-    #loggin.info("[<] " + str(datetime.now()) + ':: get+Limit')
-    if Limit is not None and count >= int(Limit):
-        return True
-
 async def Multi(feed, config, conn):
     #loggin.info("[<] " + str(datetime.now()) + ':: get+Multi')
     count = 0
