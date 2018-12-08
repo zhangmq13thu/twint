@@ -3,7 +3,7 @@ from .tweet import Tweet
 from .user import User
 from datetime import datetime
 from .storage import db, elasticsearch, write, panda
-
+from .customErrors import TimeExceeded
 #import logging
 
 _duplicate_dict = {}
@@ -27,6 +27,13 @@ def datecheck(datestamp, config):
         if d < s:
             return False
     return True
+
+def timeCheck(timestamp, config):
+    _tHour = int(timestamp.split(':')[0])
+    _cHour = config.Time_check
+    if _tHour > _cHour:
+        return True
+    return False
 
 def is_tweet(tw):
     #logging.info("[<] " + str(datetime.now()) + ':: output+is_tweet')
@@ -79,10 +86,12 @@ def _output(obj, output, config, **extra):
 async def checkData(tweet, location, config, conn):
     usernames = []
     user_ids = set()
-    global _duplicate_dict
     copyright = tweet.find("div", "StreamItemContent--withheld")
     if copyright is None and is_tweet(tweet):
         tweet = Tweet(tweet, location, config)
+
+    if not timeCheck(tweet.timestamp, config):
+        raise TimeExceeded('Retrieved every tweet for the specified hour, closing.')
 
     if datecheck(tweet.datestamp, config):
         output = format.Tweet(config, tweet)
