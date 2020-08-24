@@ -25,8 +25,14 @@ def datecheck(datestamp, config):
     logme.debug(__name__+':datecheck')
     if config.Since and config.Until:
         logme.debug(__name__+':datecheck:dateRangeTrue')
-        d = int(datestamp.replace("-", ""))
-        s = int(config.Since.replace("-", ""))
+        try:
+            d = int(datestamp.replace("-", ""))
+        except:
+            d = 0  
+        try:
+            s = int(config.Since.replace("-", ""))
+        except:
+            s = 0
         if d < s:
             return False
     logme.debug(__name__+':datecheck:dateRangeFalse')
